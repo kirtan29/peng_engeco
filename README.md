@@ -8,9 +8,9 @@ It is designed as a study and practice tool for P.Eng Technical Exam (Engineerin
 
 ---
 ## Floder Structure
-peng_EnggEco/                  # repo root
+peng_EngEco/                  # repo root
 ├─ src/
-│  └─ peng_EnggEco/            # import name stays peng_EnggEco
+│  └─ peng_EngEco/            # import name stays peng_EnggEco
 │     ├─ __init__.py
 │     ├─ CashFlowDiagram/
 │     │  ├─ __init__.py
@@ -40,9 +40,7 @@ Easy to use — no dependencies beyond standard Python.
 
 ## 📦 Installation
 
-Clone this repo or download it, then inside the project root (`peng_EnggEcon/`) run:
-
-
+Clone this repo or download it, then inside the project root (`peng_EngEcon/`) run:
 
 
 \## 📖 Implemented Formulas
@@ -111,13 +109,13 @@ P = 10,000 × 3.9927 ≈ **$39,927**
 **Python Example:**
 
 ```python
-from FinanceFactors import FinanceFactors
+from FinanceFactors import factors as ff
 
 A = 10000
 i = 0.08
 n = 5
 
-P_A = FinanceFactors.P_A(i, n)
+P_A = ff.P_A(i, n)
 P = A * P_A
 print("Present Worth:", round(P, 2))
 
