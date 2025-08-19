@@ -1,0 +1,48 @@
+Git Cheat Sheet (Beginner Friendly)
+===================================
+
+1. Check which branch you are on (should be 'main'):
+   git branch --show-current
+
+2. Update your local repo with the latest from GitHub:
+   git pull origin main
+
+3. Check what files changed since last commit:
+   git status
+
+4. Stage changes (choose one):
+   git add .                # stage ALL changes
+   git add filename.py      # stage one file only
+
+5. Commit changes with a message:
+   git commit -m "Your message here"
+
+   Examples:
+   git commit -m "Add pastpapers folder"
+   git commit -m "Fix bug in finance function"
+   git commit -m "Update README with instructions"
+
+6. Push your changes to GitHub:
+   git push origin main
+
+---
+
+✅ Typical Daily Workflow:
+cd path/to/your/project
+git pull origin main
+# make changes to files/folders
+git status
+git add .
+git commit -m "Describe what you changed"
+git push origin main
+
+---
+
+📂 Notes:
+- Git does NOT track empty folders. Add a file (like .gitkeep) to keep them.
+- Use short, clear commit messages describing your changes.
+- If you want to save work temporarily without committing:
+  git stash
+  git pull origin main
+  git stash pop
+
