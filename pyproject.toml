@@ -3,9 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-# Distribution name on PyPI (lowercase with hyphens is conventional).
-# Import path is controlled by the folder name under src/, not this field.
-name = "peng-engeco"
+name = "peng-engeco"   # package name for PyPI
 version = "0.1.0"
 description = "Engineering Economics utilities (cash flows, factors) for P.Eng prep"
 readme = "README.md"
@@ -19,8 +17,8 @@ Homepage = "https://github.com/kirtan29/peng_engeco"
 Issues   = "https://github.com/kirtan29/peng_engeco/issues"
 
 [tool.hatch.build.targets.wheel]
-# <- KEY for src layout
-packages = ["src/peng_EngEco"]
+# FIXED: point to the correct source folder
+packages = ["src/peng_engeco"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
