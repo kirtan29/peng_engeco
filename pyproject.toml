@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+# Distribution name on PyPI (lowercase with hyphens is conventional).
+# Import path is controlled by the folder name under src/, not this field.
+name = "peng-engeco"
+version = "0.1.0"
+description = "Engineering Economics utilities (cash flows, factors) for P.Eng prep"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Kirtan Adhikari" }]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/kirtan29/Peng_EngEco"
+Issues   = "https://github.com/kirtan29/Peng_EngEco/issues"
+
+[tool.hatch.build.targets.wheel]
+# <- KEY for src layout
+packages = ["src/peng_EngEco"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
