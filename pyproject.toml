@@ -15,8 +15,8 @@ authors = [{ name = "Kirtan Adhikari" }]
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/kirtan29/Peng_EngEco"
-Issues   = "https://github.com/kirtan29/Peng_EngEco/issues"
+Homepage = "https://github.com/kirtan29/peng_engeco"
+Issues   = "https://github.com/kirtan29/peng_engeco/issues"
 
 [tool.hatch.build.targets.wheel]
 # <- KEY for src layout
