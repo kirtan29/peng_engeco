@@ -152,3 +152,26 @@ class FinanceFactors:
     def per_period_from_eff_annual(i_eff: float, periods_per_year: int) -> float:
         """Per-target-period effective rate from EAR."""
         return FinanceFactors.eff_convert(i_eff, k_in=1, k_out=periods_per_year)
+    
+    #----------------------LOAN RELATED-----------------------------
+    @staticmethod
+    def OBF(i: float, n: int, k: int) -> float:
+        """
+        Outstanding Balance Factor (OBF).
+
+        Computes the remaining loan balance factor after 'k' payments
+        of an amortized loan.
+
+        Formula:
+            B_k = ( (1+i)^(n-k) - 1 ) / ( i * (1+i)^(n-k) )
+
+        Where:
+            B_k : Outstanding balance factor (multiply by payment A to get balance)
+            i   : Periodic interest rate (decimal form, e.g. 0.01 for 1%)
+            n   : Total number of payments
+            k   : Number of payments already made
+
+        Usage:
+            balance = A * factors.OBF(i, n, k)
+        """
+        return ((1 + i) ** (n - k) - 1) / (i * (1 + i) ** (n - k))
