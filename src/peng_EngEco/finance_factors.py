@@ -175,3 +175,106 @@ class FinanceFactors:
             balance = A * factors.OBF(i, n, k)
         """
         return ((1 + i) ** (n - k) - 1) / (i * (1 + i) ** (n - k))
+    
+    @staticmethod
+    def loan_amortization(loan: float, i: float, n_periods: int, *, decimals: int = 2):
+        """
+        Compute and print the loan amortization schedule.
+
+        Parameters
+        ----------
+        loan : float
+            Loan principal (present value).
+        i : float
+            Periodic interest rate (e.g., 0.15 = 15%).
+        n_periods : int
+            Number of payment periods.
+        decimals : int, optional
+            Number of decimal places for rounding.
+
+        Returns
+        -------
+        dict
+            {
+                "Period": [...],
+                "Beginning Balance": [...],
+                "Installment": [...],
+                "Interest": [...],
+                "Principal": [...],
+                "Ending Balance": [...],
+                "Totals": {"Installment": ..., "Interest": ..., "Principal": ...},
+                "Payment": float
+            }
+        """
+        if n_periods <= 0:
+            raise ValueError("n_periods must be positive.")
+
+        # --- Compute level payment ---
+        if i == 0.0:
+            A = loan / n_periods
+        else:
+            P_over_A = ((1 + i) ** n_periods - 1) / (i * (1 + i) ** n_periods)
+            A = loan / P_over_A
+
+        # --- Prepare columns ---
+        Period = []
+        Begin = []
+        Installment = []
+        Interest = []
+        Principal = []
+        End = []
+
+        total_install = total_interest = total_principal = 0.0
+        begin = loan
+
+        for k in range(1, n_periods + 1):
+            interest = begin * i
+            principal = A - interest
+            end = begin - principal
+
+            Period.append(k)
+            Begin.append(round(begin, decimals))
+            Installment.append(round(A, decimals))
+            Interest.append(round(interest, decimals))
+            Principal.append(round(principal, decimals))
+            End.append(round(end, decimals))
+
+            total_install += A
+            total_interest += interest
+            total_principal += principal
+            begin = end
+
+        totals = {
+            "Installment": round(total_install, decimals),
+            "Interest": round(total_interest, decimals),
+            "Principal": round(total_principal, decimals),
+        }
+
+        # --- Print table ---
+        headers = ["Period", "Beginning Balance", "Installment", "Interest", "Principal", "Ending Balance"]
+        widths = [8, 18, 12, 10, 10, 15]
+
+        header_row = "".join(f"{h:<{w}}" for h, w in zip(headers, widths))
+        print(f"\nLevel Payment (A): {round(A, decimals)}\n")
+        print(header_row)
+        print("-" * len(header_row))
+        for k in range(n_periods):
+            print(f"{Period[k]:<8}{Begin[k]:<18}{Installment[k]:<12}"
+                  f"{Interest[k]:<10}{Principal[k]:<10}{End[k]:<15}")
+        print("-" * len(header_row))
+        print(f"{'TOTAL':<8}{'':<18}{totals['Installment']:<12}{totals['Interest']:<10}{totals['Principal']:<10}")
+
+        return {
+            "Period": Period,
+            "Beginning Balance": Begin,
+            "Installment": Installment,
+            "Interest": Interest,
+            "Principal": Principal,
+            "Ending Balance": End,
+            "Totals": totals,
+            "Payment": round(A, decimals),
+        }
+
+
+
+
