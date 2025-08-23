@@ -274,7 +274,58 @@ class FinanceFactors:
             "Totals": totals,
             "Payment": round(A, decimals),
         }
+    @staticmethod
+    def capital_cost_allowances(capital: float, cca_rate: float, years: int):
+        """
+        Compute the Capital Cost Allowance (CCA) schedule using the declining-balance method,
+        with the half-year rule applied in Year 1. Prints a formatted table and returns a dict.
 
+        Returns
+        -------
+        dict with keys: "Year", "CCA", "UCC", "CumCCA"
+          - Year   : list[int]     Year index (1..years)
+          - CCA    : list[float]   CCA claimed in the year
+          - UCC    : list[float]   Undepreciated Capital Cost at END of the year
+          - CumCCA : list[float]   Cumulative CCA claimed up to that year
+        """
+        years_list, cca_list, ucc_list, cumcca_list = [], [], [], []
+
+        base = capital  # UCC at start of current year
+        cumcca = 0.0
+
+        for t in range(1, years + 1):
+            if t == 1:
+                cca_t = base * cca_rate * 0.5  # half-year rule
+            else:
+                cca_t = base * cca_rate
+
+            cumcca += cca_t
+            base -= cca_t  # UCC at END of year t
+
+            years_list.append(t)
+            cca_list.append(cca_t)
+            ucc_list.append(base)
+            cumcca_list.append(cumcca)
+
+        results = {"Year": years_list, "CCA": cca_list, "UCC": ucc_list, "CumCCA": cumcca_list}
+
+        # nested printer
+        def _print_table():
+            print("Capital : ", capital)   
+            print("CCA rate: ", cca_rate*100, "%")  
+            print("Years   : ", years)
+            print("-" * 66)
+            print(f"{'Year':<6}{'CCA':>15}{'UCC (end of year)':>25}{'CumCCA':>20}")
+            print("-" * 66)
+            for y, c, u, s in zip(results["Year"], results["CCA"], results["UCC"], results["CumCCA"]):
+                print(f"{y:<6}{c:>15,.2f}{u:>25,.2f}{s:>20,.2f}")
+            print("-" * 66)
+            print("CAA - Capital Cost Allowances")
+            print("UCC - Undepreciated Capital Cost at the end of the year")
+            print("CumCAA - Cumulative Capital Cost Allowances")
+            print("NOTE**: for the first year 1/2 year rule is applied")
+        _print_table()
+        return results
 
 
 
