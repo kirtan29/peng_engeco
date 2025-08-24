@@ -274,58 +274,314 @@ class FinanceFactors:
             "Totals": totals,
             "Payment": round(A, decimals),
         }
+    
     @staticmethod
-    def capital_cost_allowances(capital: float, cca_rate: float, years: int):
+    def capital_cost_allowances(
+        capital: float,
+        cca_rate: float,
+        years: int,
+        *,
+        tax_rate: float | None = None,
+        close_class_in_year: int | None = None,
+        proceeds: float | None = None,
+        capital_cost: float | None = None,
+        marr: float | None = None,
+        print_table: bool = True,
+    ) -> dict:
         """
-        Compute the Capital Cost Allowance (CCA) schedule using the declining-balance method,
-        with the half-year rule applied in Year 1. Prints a formatted table and returns a dict.
+        Compute a detailed CCA schedule under Canada's declining-balance system with:
+          • Half-year rule in acquisition year (Year 1)
+          • Optional final-year class closure with disposition (recapture / terminal loss)
+          • Optional per-year tax shield column
+          • Optional PV of shields and PV of salvage (for after-tax PV cost)
+
+        Parameters
+        ----------
+        capital : float
+            Opening UCC at Year 1 (for a single-asset class this equals the asset's capital cost).
+        cca_rate : float
+            CCA rate (e.g., 0.30 for 30%).
+        years : int
+            Number of calendar/project years to compute.
+        tax_rate : float | None, default None
+            Corporate income tax rate (e.g., 0.40). If None, Tax Shield columns are zero/omitted.
+        close_class_in_year : int | None, default None
+            If provided, indicates the year in which the class becomes empty and is *closed*.
+            In that year the normal CCA claim is SKIPPED and recapture/terminal loss is applied.
+        proceeds : float | None, default None
+            Proceeds of disposition in the closing year (cash received on sale). Required if
+            close_class_in_year is provided.
+        capital_cost : float | None, default None
+            "Lesser-of" cap for disposition deduction. If None, defaults to `capital`.
+        marr : float | None, default None
+            If provided (per-year discount rate, e.g., 0.15), the function computes PV of tax shields
+            and PV of proceeds in the closing year (treated as salvage inflow for (vii)), and
+            returns the After-Tax Present Cost = capital - [PV(shields) + PV(salvage)].
+        print_table : bool, default True
+            If True, prints a formatted table.
 
         Returns
         -------
-        dict with keys: "Year", "CCA", "UCC", "CumCCA"
-          - Year   : list[int]     Year index (1..years)
-          - CCA    : list[float]   CCA claimed in the year
-          - UCC    : list[float]   Undepreciated Capital Cost at END of the year
-          - CumCCA : list[float]   Cumulative CCA claimed up to that year
-        """
-        years_list, cca_list, ucc_list, cumcca_list = [], [], [], []
+        dict
+            A dict of column lists including:
+            "Year", "OpeningUCC", "AdditionsForBase", "DispositionsCapped", "CCABase",
+            "CCA", "ClosingUCC", "Recapture", "TerminalLoss", "TaxShield",
+            plus (if marr is not None): "PV_TaxShield", "PV_Salvage", "PV_TaxShield_Total",
+            and "AfterTax_PV_Cost".
 
-        base = capital  # UCC at start of current year
-        cumcca = 0.0
+        Notes
+        -----
+        • Year 1 uses the half-year rule: CCA Base = 0.5 * Opening UCC.
+        • In the closing year (if specified), normal CCA is not claimed. Instead, the class is closed
+          and either Recapture (= max(0, Proceeds - OpeningUCC)) or Terminal Loss (= max(0, OpeningUCC - Proceeds))
+          is recognized. Closing UCC is set to 0.
+        • Tax Shield in year t = tax_rate * (CCA + TerminalLoss - Recapture). If tax_rate is None, it's 0.
+        • If marr is provided, PV_TaxShield_t = TaxShield_t / (1 + marr)^t and
+          PV_Salvage (only in closing year) = Proceeds / (1 + marr)^t.
+        """
+        if capital_cost is None:
+            capital_cost = capital
+        if close_class_in_year is not None and proceeds is None:
+            raise ValueError("If close_class_in_year is set, you must provide proceeds.")
+        if close_class_in_year is not None and (close_class_in_year < 1 or close_class_in_year > years):
+            raise ValueError("close_class_in_year must be within 1..years.")
+
+        # Prepare containers
+        Year = []
+        OpeningUCC = []
+        AdditionsForBase = []
+        DispositionsCapped = []
+        CCABase = []
+        CCA = []
+        ClosingUCC = []
+        Recapture = []
+        TerminalLoss = []
+        TaxShield = []
+        PV_TaxShield = []
+
+        ucc_open = capital
 
         for t in range(1, years + 1):
-            if t == 1:
-                cca_t = base * cca_rate * 0.5  # half-year rule
+            Year.append(t)
+            OpeningUCC.append(ucc_open)
+
+            # Default values each year
+            disp_capped = 0.0
+            recap = 0.0
+            term_loss = 0.0
+            cca_t = 0.0
+            cca_base_t = 0.0
+
+            # Determine normal-year vs closing-year treatment
+            if close_class_in_year is not None and t == close_class_in_year:
+                # Class closes this year: skip normal CCA, apply disposition & recapture/terminal loss.
+                disp_capped = min(proceeds if proceeds is not None else 0.0, capital_cost)
+
+                # Compare proceeds to opening UCC for recapture or terminal loss
+                if proceeds is None:
+                    raise ValueError("Proceeds required in the closing year.")
+                if proceeds > ucc_open:
+                    recap = proceeds - ucc_open
+                    term_loss = 0.0
+                else:
+                    term_loss = ucc_open - proceeds
+                    recap = 0.0
+
+                # No normal CCA in closing year when class becomes empty
+                cca_t = 0.0
+                cca_base_t = 0.0
+                ucc_close = 0.0  # class closed
+
             else:
-                cca_t = base * cca_rate
+                # Normal CCA year
+                if t == 1:
+                    # Half-year rule
+                    additions_for_base = 0.5 * ucc_open
+                else:
+                    additions_for_base = ucc_open
 
-            cumcca += cca_t
-            base -= cca_t  # UCC at END of year t
+                cca_base_t = additions_for_base
+                cca_t = cca_rate * cca_base_t
 
-            years_list.append(t)
-            cca_list.append(cca_t)
-            ucc_list.append(base)
-            cumcca_list.append(cumcca)
+                # Update closing UCC normally
+                disp_capped = 0.0
+                ucc_close = ucc_open - cca_t
 
-        results = {"Year": years_list, "CCA": cca_list, "UCC": ucc_list, "CumCCA": cumcca_list}
+            # Compute Tax Shield (if tax_rate provided)
+            if tax_rate is not None:
+                shield_t = tax_rate * (cca_t + term_loss - recap)
+            else:
+                shield_t = 0.0
 
-        # nested printer
-        def _print_table():
-            print("Capital : ", capital)   
-            print("CCA rate: ", cca_rate*100, "%")  
-            print("Years   : ", years)
-            print("-" * 66)
-            print(f"{'Year':<6}{'CCA':>15}{'UCC (end of year)':>25}{'CumCCA':>20}")
-            print("-" * 66)
-            for y, c, u, s in zip(results["Year"], results["CCA"], results["UCC"], results["CumCCA"]):
-                print(f"{y:<6}{c:>15,.2f}{u:>25,.2f}{s:>20,.2f}")
-            print("-" * 66)
-            print("CAA - Capital Cost Allowances")
-            print("UCC - Undepreciated Capital Cost at the end of the year")
-            print("CumCAA - Cumulative Capital Cost Allowances")
-            print("NOTE**: for the first year 1/2 year rule is applied")
-        _print_table()
+            # Discount PV of shield if marr provided
+            if marr is not None:
+                pv_shield_t = shield_t / ((1.0 + marr) ** t)
+            else:
+                pv_shield_t = 0.0
+
+            # Append row values
+            AdditionsForBase.append(cca_base_t)
+            DispositionsCapped.append(disp_capped)
+            CCABase.append(cca_base_t)
+            CCA.append(cca_t)
+            ClosingUCC.append(ucc_close)
+            Recapture.append(recap)
+            TerminalLoss.append(term_loss)
+            TaxShield.append(shield_t)
+            PV_TaxShield.append(pv_shield_t)
+
+            # Next year's opening UCC
+            ucc_open = ucc_close
+
+        results = {
+            "Year": Year,
+            "OpeningUCC": OpeningUCC,
+            "AdditionsForBase": AdditionsForBase,
+            "DispositionsCapped": DispositionsCapped,
+            "CCABase": CCABase,
+            "CCA": CCA,
+            "ClosingUCC": ClosingUCC,
+            "Recapture": Recapture,
+            "TerminalLoss": TerminalLoss,
+            "TaxShield": TaxShield,
+        }
+
+        # If discounting requested, compute totals and PV of salvage (proceeds) in closing year
+        pv_salvage = 0.0
+        if marr is not None:
+            results["PV_TaxShield"] = PV_TaxShield
+            pv_tax_total = sum(PV_TaxShield)
+            results["PV_TaxShield_Total"] = pv_tax_total
+
+            if close_class_in_year is not None and proceeds is not None:
+                pv_salvage = proceeds / ((1.0 + marr) ** close_class_in_year)
+                results["PV_Salvage"] = pv_salvage
+
+            # After-Tax Present Cost for (vii)
+            after_tax_pv_cost = capital - (pv_tax_total + pv_salvage)
+            results["AfterTax_PV_Cost"] = after_tax_pv_cost
+
+        if print_table:
+            # Build a readable table
+            header = (
+                f"Capital Cost: {capital:,.2f}  |  CCA rate: {cca_rate*100:.1f}%  |  Years: {years}\n"
+            )
+            if tax_rate is not None:
+                header += f"Tax rate: {tax_rate*100:.1f}%\n"
+            if close_class_in_year is not None and proceeds is not None:
+                header += f"Closing Year: {close_class_in_year}  |  Proceeds: {proceeds:,.2f}\n"
+            if marr is not None:
+                header += f"MARR: {marr*100:.1f}%\n"
+
+            print(header)
+            cols = (
+                f"{'Year':<4} {'Opening UCC':>14} {'Disp (cap)':>12} {'CCA Base':>12} "
+                f"{'CCA':>12} {'Closing UCC':>14} {'Recapture':>12} {'TermLoss':>12} "
+            )
+            if tax_rate is not None:
+                cols += f"{'TaxShield':>12} "
+            if marr is not None:
+                cols += f"{'PVShield':>12} "
+            print(cols)
+            print('-' * len(cols))
+
+            for i in range(len(Year)):
+                row = (
+                    f"{Year[i]:<4} {OpeningUCC[i]:>14,.2f} {DispositionsCapped[i]:>12,.2f} {CCABase[i]:>12,.2f} "
+                    f"{CCA[i]:>12,.2f} {ClosingUCC[i]:>14,.2f} {Recapture[i]:>12,.2f} {TerminalLoss[i]:>12,.2f} "
+                )
+                if tax_rate is not None:
+                    row += f"{TaxShield[i]:>12,.2f} "
+                if marr is not None:
+                    row += f"{PV_TaxShield[i]:>12,.2f} "
+                print(row)
+
+            # Footer totals
+            if marr is not None:
+                print('-' * len(cols))
+                print(f"PV Tax Shields Total: {results['PV_TaxShield_Total']:,.2f}")
+                if pv_salvage:
+                    print(f"PV Salvage (Year {close_class_in_year}): {pv_salvage:,.2f}")
+                print(f"After-Tax Present Cost: {results['AfterTax_PV_Cost']:,.2f}")
+
         return results
+
+        
+        
+
+
+    @staticmethod
+    def break_even_analysis(cashflow: list[float], years: list[int]) -> None:
+        from itertools import accumulate
+        """
+        Prints a break-even (payback) table and the exact year when cumulative cash flow = 0.
+
+        Parameters
+        ----------
+        cashflow : list[float]
+            Cash flow values for each year. The first value usually includes
+            the initial investment (negative).
+        years : list[int]
+            Year markers corresponding to each cash flow.
+
+        Notes
+        -----
+        - Uses cumulative (undiscounted) cash flows.
+        - Interpolates linearly between years if the break-even occurs
+          between two periods.
+        - Prints the table directly; does not return values.
+        """
+
+        # -------- Validation --------
+        if not isinstance(cashflow, list) or not isinstance(years, list):
+            raise ValueError("Both 'cashflow' and 'years' must be lists.")
+        if len(cashflow) != len(years) or len(cashflow) == 0:
+            raise ValueError("'cashflow' and 'years' must be non-empty and of equal length.")
+        for i, c in enumerate(cashflow):
+            if not isinstance(c, (int, float)):
+                raise ValueError(f"cashflow[{i}] is not numeric: {c!r}")
+        for i, y in enumerate(years):
+            if not isinstance(y, int):
+                raise ValueError(f"years[{i}] is not an int: {y!r}")
+        for i in range(1, len(years)):
+            if years[i] <= years[i - 1]:
+                raise ValueError("Years must be strictly increasing.")
+
+        # -------- Compute cumulative --------
+        cumulative = list(accumulate(cashflow))
+
+        # -------- Print table --------
+        print(f"{'Year':<6} | {'Cash Flow':<15} | {'Cumulative':<15}")
+        print("-" * 45)
+        for y, cf, cum in zip(years, cashflow, cumulative):
+            print(f"{y:<6} | {cf:<15,.2f} | {cum:<15,.2f}")
+
+        # -------- Find break-even --------
+        idx = None
+        for i, val in enumerate(cumulative):
+            if val >= 0:
+                idx = i
+                break
+
+        if idx is None:
+            print("\n️  No break-even: cumulative never reaches ≥ 0.")
+            return
+
+        if idx == 0:
+            print("\n Break-even at year 0 (initially non-negative).")
+            return
+
+        # Interpolate between idx-1 and idx
+        y0, y1 = years[idx - 1], years[idx]
+        c0, c1 = cumulative[idx - 1], cumulative[idx]
+        fraction = abs(c0) / (c1 - c0)
+        exact_year = y0 + fraction * (y1 - y0)
+
+        print(f"\n Break-even between year {y0} and {y1}.")
+        print(f"Exact break-even year = {exact_year:.4f}")
+
+
+
 
 
 
