@@ -15,7 +15,7 @@ class FinanceFactors:
         Formula:
             F/P = (1 + i)^n
         """
-        return (1 + i) ** n
+        return round((1 + i) ** n,5)
 
     @staticmethod
     def P_F(i, n):
@@ -26,7 +26,7 @@ class FinanceFactors:
         Formula:
             P/F = 1 / (1 + i)^n
         """
-        return 1 / ((1 + i) ** n)
+        return round(1 / ((1 + i) ** n),5)
 
     @staticmethod
     def F_A(i, n):
@@ -37,7 +37,7 @@ class FinanceFactors:
         Formula:
             F/A = ((1 + i)^n - 1) / i
         """
-        return ((1 + i) ** n - 1) / i
+        return round(((1 + i) ** n - 1) / i,5)
 
     @staticmethod
     def A_F(i, n):
@@ -48,7 +48,7 @@ class FinanceFactors:
         Formula:
             A/F = i / ((1 + i)^n - 1)
         """
-        return i / ((1 + i) ** n - 1)
+        return round(i / ((1 + i) ** n - 1),5)
 
     @staticmethod
     def P_A(i, n):
@@ -59,7 +59,7 @@ class FinanceFactors:
         Formula:
             P/A = ((1 + i)^n - 1) / (i * (1 + i)^n)
         """
-        return ((1 + i) ** n - 1) / (i * (1 + i) ** n)
+        return round(((1 + i) ** n - 1) / (i * (1 + i) ** n),5)
 
     @staticmethod
     def A_P(i, n):
@@ -70,31 +70,110 @@ class FinanceFactors:
         Formula:
             A/P = i(1 + i)^n / ((1 + i)^n - 1)
         """
-        return (i * (1 + i) ** n) / ((1 + i) ** n - 1)
+        return round((i * (1 + i) ** n) / ((1 + i) ** n - 1),5)
 
-    # ---------------- GRADIENT FACTORS ---------------- #
+    # ---------------- ARTHEMATIC GRADIENT FACTORS ---------------- #
 
     @staticmethod
-    def P_G(i, n):
+    def P_AG(i, n):
         """
-        P/G Factor — Arithmetic Gradient Present Worth Factor
+        P/AG Factor — Arithmetic Gradient Present Worth Factor
         Converts a linear gradient (G per period) to Present Value (P).
 
         Formula:
-            P/G = (1 / i) * [((1 + i)^n - 1) / (i * (1 + i)^n) - n / (1 + i)^n]
+            P/AG = (1 / i) * [((1 + i)^n - 1) / (i * (1 + i)^n) - n / (1 + i)^n]
         """
-        return (1 / i) * (((1 + i) ** n - 1) / (i * (1 + i) ** n) - n / ((1 + i) ** n))
+        return round((1 / i) * (((1 + i) ** n - 1) / (i * (1 + i) ** n) - n / ((1 + i) ** n)),5)
 
     @staticmethod
-    def A_G(i, n):
+    def A_AG(i, n):
         """
-        A/G Factor — Arithmetic Gradient Uniform Series Factor
+        A/AG Factor — Arithmetic Gradient Uniform Series Factor
         Converts a linear gradient (G per period) to an equivalent uniform annual series (A).
 
         Formula:
-            A/G = (1 / i) - (n / ((1 + i)^n - 1))
+            A/AG = (1 / i) - (n / ((1 + i)^n - 1))
         """
-        return (1 / i) - (n / ((1 + i) ** n - 1))
+        return round((1 / i) - (n / ((1 + i) ** n - 1)),5)
+    
+    
+    @staticmethod
+    def F_AG(i: float, n: int) -> float:
+        """
+        F/AG — Arithmetic Gradient Future Worth Factor (at year n).
+        Converts linear gradient G to future worth at time n.
+        FW = G * F_AG(i, n)
+
+        Formula:
+            F_AG = (1+i)^n * P_AG
+                 = [ ( (1+i)^n - i*n - 1 ) / i^2 ]
+        """
+        return round(((1 + i) ** n - i * n - 1) / (i ** 2), 5)
+    
+    #-----------GEOMETRIC GRADIENT------------------------
+    @staticmethod
+    def P_GG(g: float, i: float, N: int) -> float:
+        """
+        Geometric Gradient Present Worth factor (P/G).
+        
+        Returns the factor such that:
+            PW = A1 * P_Geo(g, i, N)
+
+        Formula:
+            P_Geo = (1 / (i - g)) * [1 - ((1+g)/(1+i))^N],   if i != g
+            P_Geo = N / (1+i),                               if i == g
+
+        Parameters
+        ----------
+        g : float
+            Growth rate per period (decimal, e.g., 0.1 for 10%)
+        i : float
+            Interest rate per period (decimal, e.g., 0.08 for 8%)
+        N : int
+            Number of periods
+
+        Returns
+        -------
+        float
+            Present Worth factor (rounded to 5 decimals)
+        """
+        if abs(i - g) < 1e-12:
+            return round(N / (1 + i), 5)
+        else:
+            return round((1 / (i - g)) * (1 - ((1 + g) / (1 + i)) ** N), 5)
+
+    @staticmethod
+    def F_GG(g: float, i: float, N: int) -> float:
+        """
+        Geometric Gradient Future Worth factor (F/G).
+        
+        Returns the factor such that:
+            FW = A1 * F_Geo(g, i, N)
+
+        Formula:
+            F_Geo = (1 / (i - g)) * [ (1+i)^N - (1+g)^N ],   if i != g
+            F_Geo = N * (1+i)^(N-1),                        if i == g
+        """
+        if abs(i - g) < 1e-12:
+            return round(N * (1 + i) ** (N - 1), 5)
+        else:
+            return round((1 / (i - g)) * ((1 + i) ** N - (1 + g) ** N), 5)
+
+    @staticmethod
+    def A_GG(g: float, i: float, N: int) -> float:
+        """
+        Geometric Gradient Equivalent Annual Worth factor (A/G).
+        
+        Returns the factor such that:
+            AE = A1 * A_Geo(g, i, N)
+
+        Formula:
+            A_Geo = P_Geo(g, i, N) * (A/P, i, N)
+            where (A/P, i, N) = i / [1 - (1+i)^(-N)]
+        """
+        P_geo = FinanceFactors.P_Geo(g, i, N)
+        A_P = i / (1 - (1 + i) ** -N)
+        return round(P_geo * A_P, 5)
     
     # ---------- PERIOD-AGNOSTIC CORE CONVERTERS ----------
 
@@ -551,12 +630,14 @@ class FinanceFactors:
         cumulative = list(accumulate(cashflow))
 
         # -------- Print table --------
+        print("-" * 45)
         print(f"{'Year':<6} | {'Cash Flow':<15} | {'Cumulative':<15}")
         print("-" * 45)
         for y, cf, cum in zip(years, cashflow, cumulative):
             print(f"{y:<6} | {cf:<15,.2f} | {cum:<15,.2f}")
 
         # -------- Find break-even --------
+        print("-" * 45)
         idx = None
         for i, val in enumerate(cumulative):
             if val >= 0:
@@ -577,7 +658,7 @@ class FinanceFactors:
         fraction = abs(c0) / (c1 - c0)
         exact_year = y0 + fraction * (y1 - y0)
 
-        print(f"\n Break-even between year {y0} and {y1}.")
+        print(f"\nBreak-even between year {y0} and {y1}.")
         print(f"Exact break-even year = {exact_year:.4f}")
 
 
